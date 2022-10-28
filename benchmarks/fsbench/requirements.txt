@@ -1,4 +1,9 @@
 torch
 torchvision
 tqdm
+bcachefs
+ninja
+benzina @ git+https://github.com/satyaog/benzina.git@feature/coco#egg=benzina-0.0.8-dev
 deeplake
+h5py
+jug

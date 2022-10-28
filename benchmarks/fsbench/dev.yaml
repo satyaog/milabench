@@ -35,6 +35,16 @@ benchmarks:
     argv:
       --load-type: squash
 
+  bcachefs:
+    <<<: *defaults
+    argv:
+      --load-type: bcache
+
+  hdf5:
+    <<<: *defaults
+    argv:
+      --load-type: hdf5
+
   deeplake-fs:
     <<<: *defaults
     argv:

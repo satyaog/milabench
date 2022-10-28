@@ -1,10 +1,22 @@
 import argparse
+import io
 import os
 
 from giving import give
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import DatasetFolder, ImageFolder
 from torchvision.transforms import ToTensor
+
+try:
+    import h5py
+except ModuleNotFoundError:
+    pass
+
+try:
+    import bcachefs as bch
+    import benzina.torch as B
+except ModuleNotFoundError:
+    pass
 
 
 class SqhDataset(Dataset):
@@ -24,6 +36,36 @@ class SqhDataset(Dataset):
         return len(self.root.open(path, binary=True, buffering=0).readall()), label
 
 
+class H5Dataset(Dataset):
+    def __init__(self, filename: str, split: str):
+        self._file: "h5py.File" = None
+        self.filename = filename
+        self.split = split
+        with h5py.File(filename, "r") as h5f:
+            self._len = len(h5f[f"/{split}_images"])
+
+    def __len__(self):
+        with h5py.File(self.filename, "r") as h5f:
+            return len(h5f[f"/{self.split}_images"])
+
+    def __getitem__(self, idx):
+        return len(io.BytesIO(self.ds[idx][:]).read()), int(self.labels[idx])
+    
+    @property
+    def file(self):
+        if self._file is None:
+            self._file = h5py.File(self.filename, "r")
+        return self._file
+    
+    @property
+    def ds(self):
+        return self.file[f"/{self.split}_images"]
+
+    @property
+    def labels(self):
+        return self.file[f"/{self.split}_labels"]
+
+
 def _ld(path):
     with open(path, "rb") as f:
         return len(f.read())
@@ -36,6 +78,11 @@ def make_loader(path, sub, shuffle, batch_size, loading_processes, load_type):
         from pysquash import SquashCursor
 
         load = SqhDataset(SquashCursor(path + ".sqh").cd(sub.encode("utf-8")))
+    elif load_type == "bcache":
+        with bch.Bcachefs(path + ".img") as bchfs:
+            load = B.dataset.ClassificationDatasetMixin(bchfs.cd(sub))
+    elif load_type == "hdf5":
+        load = H5Dataset(path + ".h5", sub)
     elif load_type == "deeplake":
         import deeplake
         return deeplake.load(path + ".lake")[sub].pytorch(batch_size=batch_size, shuffle=shuffle, num_workers=loading_processes, tensors=["images", "labels"], return_index=False, tobytes=True)
@@ -72,7 +119,7 @@ def main():
     parser.add_argument(
         "--load-type",
         required=True,
-        choices=("fs", "squash", "deeplake", "decode"),
+        choices=("fs", "squash", "bcache", "hdf5", "deeplake", "decode"),
         help="type of loading to test, 'fs' is raw filesystem with no decode, 'squash' is loading trough squashfile, and 'decode' if from the filesystem, but including image decode",
     )
 
