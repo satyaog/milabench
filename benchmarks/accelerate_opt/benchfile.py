@@ -33,7 +33,7 @@ class AccelerateBenchmark(Package):
         return await new_pack.execute(
             *prepend, *command,
             use_stdout=True,
-	)
+        )
 
 
     def accelerate_command(self, rank):
