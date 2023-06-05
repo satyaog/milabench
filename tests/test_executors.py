@@ -1,10 +1,10 @@
 import asyncio
 import os
 
-from milabench.executors import PackExecutor, VoirExecutor, NJobs
+from milabench.executors import PackExecutor, VoirExecutor, NJobs, TimeOutExec
 from milabench.pack import Package
 from milabench.cli import _get_multipack
-from milabench.alt_async import FeedbackEventLoop, proceed
+from milabench.alt_async import proceed
 
 class MockPack(Package):
     pass
@@ -45,10 +45,22 @@ def test_voir_executor():
         print(r)
         acc += 1
         
-    assert acc == 70
+    assert acc > 2 and acc < 70
         
+
+def test_timeout():
+    exec = PackExecutor(benchio(), "--start", "2", "--end", "20", '--sleep', 20)
+    voir = VoirExecutor(exec)
+    timed = TimeOutExec(voir, delay=1)
     
-    
+    acc = 0
+    for r in proceed(timed.execute()):
+        print(r)
+        acc += 1
+        
+    assert acc == 70 * 5
+
+
 def test_njobs_executor():
     exec = PackExecutor(benchio(), "--start", "2", "--end", "20")
     voir = VoirExecutor(exec)

@@ -3,9 +3,11 @@ from hashlib import md5
 import json
 from typing import Dict, Generator, List, Tuple
 
-from milabench.fs import XPath
-from milabench.multi import clone_with
-from milabench.pack import BasePackage
+from .fs import XPath
+from .multi import clone_with
+from .pack import BasePackage
+from .alt_async import destroy
+
 from voir.instruments.gpu import get_gpu_info
 
 
@@ -67,6 +69,44 @@ class PackExecutor(Executor):
                                                         # unexpected path during
                                                         # exec?
         return super().argv(*argv, script, *self.script_argv, **kwargs)
+
+
+class TimeOutExec(Executor):
+    def __init__(
+            self,
+            exec:Executor,
+            delay: int = 600,
+    ) -> None:
+        super().__init__(
+            exec=exec,
+            pack=None
+        )
+        self.delay = delay
+        
+    async def execute(self):
+        """Execute with timeout"""
+        async def force_terminate(pack, delay):
+            await asyncio.sleep(delay)
+            for proc in pack.processes:
+                ret = proc.poll()
+                if ret is None:
+                    await pack.message(
+                        f"Terminating process because it ran for longer than {delay} seconds."
+                    )
+                    destroy(proc)
+        
+        coro = []
+
+        for pack, argv, kwargs in self.commands():
+            coro.append(pack.execute(*argv, **kwargs))
+            
+            asyncio.create_task(
+                force_terminate(
+                    pack, pack.config.get("max_duration", self.delay)
+                )
+            )
+
+        return await asyncio.gather(*coro)
 
 
 class DockerRunExecutor(Executor):
