@@ -23,7 +23,6 @@ def benchio():
     return pack
 
 
-
 def test_pack_executor():
     # voir is not setup so we are not receiving anything
     exec = PackExecutor(benchio(), "--start", "2", "--end", "20")
