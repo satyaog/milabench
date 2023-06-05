@@ -18,10 +18,13 @@ class Executor():
     ) -> None:
         if exec and pack:
             raise ValueError("`exec` and `pack` can not both be set")
+        
         if exec is None and pack is None:
             raise ValueError("Missing `exec` or `pack`")
+    
         self.exec = exec
         self._pack = pack
+        
         self.kwargs = kwargs
 
     @property
@@ -44,20 +47,17 @@ class Executor():
         for pack, argv, kwargs in self.commands():
             coro.append(pack.execute(*argv, **kwargs))
 
-        return await asyncio.gather(coro)
+        return await asyncio.gather(*coro)
 
 
 class PackExecutor(Executor):
     def __init__(
             self,
+            pack:BasePackage,
             *script_argv,
-            exec:Executor=None,
-            pack:BasePackage=None,
             **kwargs
     ) -> None:
-        if exec:
-            raise ValueError(f"{self.__class__} does not accept nested `exec`")
-        super().__init__(exec=exec, pack=pack, **kwargs)
+        super().__init__(exec=None, pack=pack, **kwargs)
         self.script_argv = script_argv
 
     def argv(self, *argv, **kwargs) -> List:
@@ -141,14 +141,13 @@ class SSHExecutor(Executor):
 class VoirExecutor(Executor):
     def __init__(
             self,
+            exec:Executor,
             *voir_argv,
-            exec:Executor=None,
-            pack:BasePackage=None,
             **kwargs
     ) -> None:
         super().__init__(
             exec=exec,
-            pack=pack,
+            pack=None,
             **{"setsid":True, **kwargs}
         )
         self.voir_argv = voir_argv
@@ -198,16 +197,15 @@ class PerGPU(Executor):
             yield run_pack, self.argv(), self.kwargs
 
 
-# What is NJobs supposed to do?
 class NJobs(Executor):
+    """Runs n instance of the same job in parallel"""
     def __init__(
             self,
+            exec:Executor,
             n:int,
-            exec:Executor=None,
-            pack:BasePackage=None,
             **kwargs
     ) -> None:
-        super().__init__(exec=exec, pack=pack, **kwargs)
+        super().__init__(exec=exec, pack=None, **kwargs)
         self.n = n
 
     def commands(self) -> Generator[Tuple[BasePackage, List, Dict], None, None]:
