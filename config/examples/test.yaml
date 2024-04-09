@@ -2,7 +2,7 @@ _defaults:
   max_duration: 600
   voir:
     options:
-      stop: 60
+      stop: 10
       interval: "1s"
 
 test:
